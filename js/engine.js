@@ -291,28 +291,42 @@ const Renderer = {
         this.ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
     },
 
+    // Background image cache
+    _bgImages: {},
+    _bgLoaded: {},
+
+    loadBackgroundImage(chapter) {
+        const key = 'chapter' + chapter;
+        if (!this._bgImages[key]) {
+            const img = new Image();
+            img.src = 'assets/backgrounds/library background.png';
+            img.onload = () => { this._bgLoaded[key] = true; };
+            this._bgImages[key] = img;
+        }
+        return this._bgImages[key];
+    },
+
     // Draw parallax background layers
     drawBackground(chapter, levelWidth) {
         const ctx = this.ctx;
         const cx = Camera.x;
 
-        // Layer 0: Deep background - dark library walls
+        // Layer 0: Deep background color
         ctx.fillStyle = CONFIG.COLORS.BG_DARK;
         ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
 
-        // Gradient atmosphere
-        const grad = ctx.createLinearGradient(0, 0, 0, CONFIG.HEIGHT);
-        grad.addColorStop(0, 'rgba(30, 20, 40, 1)');
-        grad.addColorStop(0.5, 'rgba(20, 15, 30, 1)');
-        grad.addColorStop(1, 'rgba(10, 8, 18, 1)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
-
-        // Layer 1: Far bookshelves (0.1 parallax)
-        this.drawFarBookshelves(ctx, cx * 0.1, chapter);
-
-        // Layer 2: Mid bookshelves and windows (0.3 parallax)
-        this.drawMidLayer(ctx, cx * 0.3, chapter);
+        // Draw background image with slow parallax
+        const bgImg = this.loadBackgroundImage(chapter);
+        if (this._bgLoaded['chapter' + chapter]) {
+            const parallaxSpeed = 0.15;
+            const scaleH = CONFIG.HEIGHT;
+            const scaleW = (bgImg.width / bgImg.height) * scaleH;
+            // Tile the background if level is wider than image
+            const offsetX = -(cx * parallaxSpeed) % scaleW;
+            for (let x = offsetX - scaleW; x < CONFIG.WIDTH + scaleW; x += scaleW) {
+                ctx.drawImage(bgImg, x, 0, scaleW, scaleH);
+            }
+        }
 
         // Layer 3: Sunlight beams (0.2 parallax)
         this.drawSunbeams(ctx, cx * 0.2, chapter);
@@ -496,7 +510,20 @@ const Renderer = {
         ctx.restore();
     },
 
-    // Draw a platform styled as bookshelf
+    // Platform sprite cache
+    _platformImg: null,
+    _platformImgLoaded: false,
+
+    loadPlatformSprite() {
+        if (!this._platformImg) {
+            this._platformImg = new Image();
+            this._platformImg.src = 'assets/levels/chapter1_platform_example_1/platform_flat_1.png';
+            this._platformImg.onload = () => { this._platformImgLoaded = true; };
+        }
+        return this._platformImg;
+    },
+
+    // Draw a platform using sprite
     drawPlatform(ctx, p) {
         const sx = Camera.screenX(p.x);
         const sy = Camera.screenY(p.y);
@@ -504,13 +531,15 @@ const Renderer = {
         if (sx + p.width < -50 || sx > CONFIG.WIDTH + 50) return;
         if (sy + p.height < -50 || sy > CONFIG.HEIGHT + 50) return;
 
-        if (p.type === 'bookshelf') {
-            this.drawBookshelfPlatform(ctx, sx, sy, p.width, p.height);
-        } else if (p.type === 'books') {
-            this.drawBooksPlatform(ctx, sx, sy, p.width, p.height, p.seed || 0);
-        } else if (p.type === 'desk') {
-            this.drawDeskPlatform(ctx, sx, sy, p.width, p.height);
+        this.loadPlatformSprite();
+        if (this._platformImgLoaded) {
+            // Collision box top = platform top, sprite hangs down from there
+            const img = this._platformImg;
+            const aspectRatio = img.height / img.width;
+            const drawH = p.width * aspectRatio;
+            ctx.drawImage(this._platformImg, sx, sy, p.width, drawH);
         } else {
+            // Fallback: old style while loading
             this.drawBookshelfPlatform(ctx, sx, sy, p.width, p.height);
         }
     },
