@@ -145,70 +145,60 @@ class Enemy {
     }
 
     drawEntity(ctx, sx, sy) {
-        // Override in subclasses
+        // Override in subclasses — fallback: try sprite, then colored rect
         ctx.fillStyle = CONFIG.COLORS.VOID_PURPLE;
         ctx.fillRect(sx, sy, this.width, this.height);
     }
+
+    // Helper: draw a sprite-based enemy with 2-frame walk animation
+    drawSpriteEntity(ctx, sx, sy, spriteKey, scale = 1) {
+        const frameIdx = (Math.floor(this.animTimer / 15) % 2) + 1;
+        const sprite = SpriteLoader.get(spriteKey + '_' + frameIdx);
+
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            const drawW = sprite.naturalWidth * scale;
+            const drawH = sprite.naturalHeight * scale;
+            const drawX = sx + this.width / 2 - drawW / 2;
+            const drawY = sy + this.height - drawH;
+
+            if (this.facing > 0) {
+                ctx.save();
+                ctx.translate(drawX + drawW, drawY);
+                ctx.scale(-1, 1);
+                ctx.drawImage(sprite, 0, 0, drawW, drawH);
+                ctx.restore();
+            } else {
+                ctx.drawImage(sprite, drawX, drawY, drawW, drawH);
+            }
+            return true;
+        }
+        return false;
+    }
 }
 
-// ---- VOID WISP (small floater) ----
+// ---- VOID WISP (ground patrol mob) ----
 class VoidWisp extends Enemy {
     constructor(x, y) {
         super(x, y, 'wisp');
-        this.width = 22;
-        this.height = 22;
+        this.width = 30;
+        this.height = 30;
         this.hp = 20;
         this.maxHp = 20;
         this.damage = 8;
         this.speed = 1.2;
         this.aggroRange = 250;
-        this.floatOffset = Math.random() * Math.PI * 2;
-    }
-
-    update(player, platforms) {
-        super.update(player, platforms);
-        if (!this.dead) {
-            // Float up and down
-            this.y += Math.sin(this.animTimer * 0.05 + this.floatOffset) * 0.5;
-        }
+        this.spriteScale = 0.50; // %33 + %25 küçültme
     }
 
     drawEntity(ctx, sx, sy) {
-        const time = Date.now() / 1000;
-        const pulse = Math.sin(time * 4 + this.floatOffset) * 0.3;
+        // Try sprite first (mob1) with scale
+        if (this.drawSpriteEntity(ctx, sx, sy, 'mob1', this.spriteScale)) return;
 
-        // Glow
-        ctx.fillStyle = `rgba(100, 40, 160, ${0.3 + pulse * 0.2})`;
-        ctx.beginPath();
-        ctx.arc(sx + this.width / 2, sy + this.height / 2, this.width * 0.8, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Core
+        // Fallback: procedural
         ctx.fillStyle = CONFIG.COLORS.VOID_GLOW;
         ctx.beginPath();
         ctx.arc(sx + this.width / 2, sy + this.height / 2, this.width * 0.35, 0, Math.PI * 2);
         ctx.fill();
-
-        // Inner bright
-        ctx.fillStyle = '#d0a0ff';
-        ctx.beginPath();
-        ctx.arc(sx + this.width / 2 - 2, sy + this.height / 2 - 2, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Tendrils
-        ctx.strokeStyle = `rgba(140, 70, 200, ${0.5 + pulse})`;
-        ctx.lineWidth = 1.5;
-        for (let i = 0; i < 4; i++) {
-            const angle = time * 2 + i * (Math.PI / 2);
-            const len = 8 + Math.sin(time * 3 + i) * 4;
-            ctx.beginPath();
-            ctx.moveTo(sx + this.width / 2, sy + this.height / 2);
-            ctx.lineTo(
-                sx + this.width / 2 + Math.cos(angle) * len,
-                sy + this.height / 2 + Math.sin(angle) * len
-            );
-            ctx.stroke();
-        }
     }
 }
 
@@ -234,29 +224,19 @@ class VoidCrawler extends Enemy {
     }
 
     drawEntity(ctx, sx, sy) {
+        // Try sprite first (mob2)
+        if (this.drawSpriteEntity(ctx, sx, sy, 'mob2', 0.75)) return;
+
+        // Fallback: procedural
         const f = this.facing;
-
-        // Legs
-        ctx.fillStyle = '#3a1a50';
-        for (let i = 0; i < 3; i++) {
-            const legOffset = Math.sin(this.legAnim + i * 2) * 3;
-            ctx.fillRect(sx + 4 + i * 10, sy + this.height - 2, 4, 6 + legOffset);
-            ctx.fillRect(sx + 4 + i * 10 + 16, sy + this.height - 2, 4, 6 - legOffset);
-        }
-
-        // Body
         ctx.fillStyle = CONFIG.COLORS.VOID_DARK;
         ctx.beginPath();
         ctx.ellipse(sx + this.width / 2, sy + this.height / 2, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
         ctx.fill();
-
-        // Shell pattern
         ctx.fillStyle = CONFIG.COLORS.VOID_PURPLE;
         ctx.beginPath();
         ctx.ellipse(sx + this.width / 2, sy + this.height / 2 - 3, this.width / 3, this.height / 3, 0, 0, Math.PI * 2);
         ctx.fill();
-
-        // Eyes
         ctx.fillStyle = '#ff4488';
         const eyeX = f > 0 ? sx + this.width - 10 : sx + 4;
         ctx.fillRect(eyeX, sy + 6, 4, 4);

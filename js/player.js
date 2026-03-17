@@ -322,8 +322,9 @@ class Player {
 
         // --- Realistic pendulum physics ---
         // gravity/length gives angular acceleration; stronger gravity = more realistic
+        // Higher gravity = snappier, more natural swing even at bottom positions
         const normalizedLen = Math.max(ropeLen / 100, 0.5);
-        const gravity = 0.0008;
+        const gravity = 0.002;
         const angularAccel = -(gravity / normalizedLen) * Math.sin(this.ropeSwingAngle) * swingMultiplier;
         this.ropeSwingSpeed += angularAccel;
 
@@ -360,10 +361,16 @@ class Player {
         // Max angle: ~85 degrees at full swing capacity
         const maxAngle = (Math.PI * 0.47) * swingMultiplier;
 
-        // Natural damping: ~10-15% energy loss per swing (realistic friction)
-        // Near top of rope, damp much harder so it doesn't drift
-        const dampFactor = swingMultiplier < 0.05 ? 0.9 : 0.985;
+        // Natural damping: realistic friction — loses ~12% energy per swing
+        // When no input and passing through center (angle near 0), apply damping
+        // Near top of rope, damp harder so it doesn't drift
+        const dampFactor = swingMultiplier < 0.05 ? 0.9 : 0.997;
         this.ropeSwingSpeed *= dampFactor;
+
+        // Additional energy loss when passing through the bottom of the arc (realistic air resistance)
+        if (Math.abs(this.ropeSwingAngle) < 0.1 && currentDir === 0) {
+            this.ropeSwingSpeed *= 0.985; // extra damping at center when not pumping
+        }
 
         // Update angle
         this.ropeSwingAngle += this.ropeSwingSpeed;
@@ -761,20 +768,9 @@ class Player {
             const drawW = imgW * scale;
             const drawH = this.height;
 
-            // For wide sprites (power_release), character body is on the left ~1/3
-            const isWide = (spriteName === 'power_release');
-
             // Center the sprite on the player hitbox
-            let drawX, drawY;
-            if (isWide) {
-                // Character is on left portion of sprite; align left side with player
-                drawX = sx - drawW * 0.05; // slight offset so character aligns
-                drawY = sy + this.height - drawH;
-            } else {
-                // Center sprite over hitbox
-                drawX = sx + this.width / 2 - drawW / 2;
-                drawY = sy + this.height - drawH;
-            }
+            const drawX = sx + this.width / 2 - drawW / 2;
+            const drawY = sy + this.height - drawH;
 
             // Flip for facing direction
             if (this.facing < 0) {

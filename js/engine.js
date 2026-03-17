@@ -830,6 +830,7 @@ const SpriteLoader = {
     },
 
     init() {
+        // Player sprites
         const base = 'assets/player/';
         this.load('idle_1', base + 'idle_1.png');
         this.load('idle_2', base + 'idle_2.png');
@@ -844,6 +845,13 @@ const SpriteLoader = {
         this.load('dodge_2', base + 'dodge roll_2.png');
         this.load('dodge_3', base + 'dodge roll_3.png');
         this.load('dodge_4', base + 'dodge roll_4.png');
+
+        // Mob sprites
+        const mobBase = 'assets/mobs/';
+        this.load('mob1_1', mobBase + 'mob 1_1.png');
+        this.load('mob1_2', mobBase + 'mob 1_2.png');
+        this.load('mob2_1', mobBase + 'mob 2_1.png');
+        this.load('mob2_2', mobBase + 'mob 2_2.png');
     }
 };
 
