@@ -328,11 +328,7 @@ const Renderer = {
             }
         }
 
-        // Layer 3: Sunlight beams (0.2 parallax)
-        this.drawSunbeams(ctx, cx * 0.2, chapter);
-
-        // Layer 4: Atmospheric dust particles
-        this.drawDust(ctx, cx * 0.15);
+        // Sunbeams and dust disabled — background image handles atmosphere
     },
 
     drawFarBookshelves(ctx, offsetX, chapter) {
@@ -462,52 +458,30 @@ const Renderer = {
         ctx.restore();
     },
 
-    // Draw foreground parallax elements (Hollow Knight style)
+    // Draw the level PNG image as the visual layer (replaces individual platform sprites)
+    drawLevelPNG(ctx, level) {
+        const img = SpriteLoader.get('level_chapter1');
+        if (!img || !img.complete) return;
+
+        // Calculate visible region to avoid drawing the entire image
+        const sx = Math.max(0, Math.floor(Camera.x - Camera.shakeX));
+        const sy = Math.max(0, Math.floor(Camera.y - Camera.shakeY));
+        const sw = Math.min(img.naturalWidth - sx, CONFIG.WIDTH + 2);
+        const sh = Math.min(img.naturalHeight - sy, CONFIG.HEIGHT + 2);
+
+        if (sw <= 0 || sh <= 0) return;
+
+        const dx = Camera.screenX(sx);
+        const dy = Camera.screenY(sy);
+
+        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, sw, sh);
+    },
+
+    // Draw foreground parallax elements (disabled - reserved for future use like spider webs)
     drawForeground(ctx, levelWidth) {
-        const cx = Camera.x;
-        ctx.save();
-
-        // Foreground bookshelf edges (1.2 parallax - moves faster = closer)
-        const fgOffset = cx * 1.15;
-        for (let i = 0; i < 6; i++) {
-            const x = i * 450 - (fgOffset % 450) - 100;
-
-            // Dark bookshelf edge
-            ctx.fillStyle = 'rgba(20, 12, 8, 0.85)';
-            ctx.fillRect(x, CONFIG.HEIGHT - 500, 35, 500);
-
-            // Book spines on foreground shelf
-            for (let b = 0; b < 3; b++) {
-                const by = CONFIG.HEIGHT - 480 + b * 100;
-                const colorIdx = (i + b) % CONFIG.COLORS.BOOK_COLORS.length;
-                ctx.fillStyle = CONFIG.COLORS.BOOK_COLORS[colorIdx] + '90';
-                ctx.fillRect(x + 3, by, 28, 25 + Math.sin(i + b) * 10);
-            }
-
-            // Dark shadow gradient from edge
-            const sg = ctx.createLinearGradient(x + 35, 0, x + 120, 0);
-            sg.addColorStop(0, 'rgba(10, 6, 4, 0.4)');
-            sg.addColorStop(1, 'rgba(10, 6, 4, 0)');
-            ctx.fillStyle = sg;
-            ctx.fillRect(x + 35, CONFIG.HEIGHT - 500, 85, 500);
-        }
-
-        // Floating dust motes in foreground
-        const time = Date.now() / 1000;
-        for (let i = 0; i < 15; i++) {
-            const seed = i * 97.3;
-            const x = ((seed * 5.1 + time * 15) % (CONFIG.WIDTH + 200)) - 100;
-            const y = ((seed * 2.3 + Math.sin(time * 0.7 + seed) * 50) % CONFIG.HEIGHT);
-            const alpha = 0.2 + Math.sin(time * 0.3 + seed) * 0.15;
-            const size = 2 + Math.sin(seed) * 1;
-
-            ctx.fillStyle = `rgba(255, 230, 190, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        ctx.restore();
+        // DEBUG: red dot top-left = new code loaded
+        ctx.fillStyle = 'red';
+        ctx.fillRect(0, 0, 10, 10);
     },
 
     // Platform sprite cache
@@ -545,45 +519,9 @@ const Renderer = {
     },
 
     drawBookshelfPlatform(ctx, x, y, w, h) {
-        // Main wood body
-        ctx.fillStyle = CONFIG.COLORS.WOOD_MID;
+        // Simple fallback — plain dark block, no decorative books
+        ctx.fillStyle = '#3a2515';
         ctx.fillRect(x, y, w, h);
-
-        // Top edge (lighter)
-        ctx.fillStyle = CONFIG.COLORS.WOOD_LIGHT;
-        ctx.fillRect(x, y, w, 4);
-
-        // Bottom shadow
-        ctx.fillStyle = CONFIG.COLORS.WOOD_DARK;
-        ctx.fillRect(x, y + h - 3, w, 3);
-
-        // Side edges
-        ctx.fillStyle = CONFIG.COLORS.WOOD_DARK;
-        ctx.fillRect(x, y, 3, h);
-        ctx.fillRect(x + w - 3, y, 3, h);
-
-        // Books on top decorative (if tall enough)
-        if (h >= 24) {
-            const bookCount = Math.floor(w / 16);
-            for (let i = 0; i < bookCount; i++) {
-                const bx = x + 5 + i * (w / bookCount);
-                const bh = 8 + (Math.sin(x + i * 3) * 4);
-                const colorIdx = Math.abs(Math.floor(x / 10 + i)) % CONFIG.COLORS.BOOK_COLORS.length;
-                ctx.fillStyle = CONFIG.COLORS.BOOK_COLORS[colorIdx];
-                ctx.fillRect(bx, y + 5, Math.min(12, w / bookCount - 2), bh);
-            }
-        }
-
-        // Wood grain lines
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 3; i++) {
-            const ly = y + h * 0.3 + i * (h * 0.2);
-            ctx.beginPath();
-            ctx.moveTo(x + 4, ly);
-            ctx.lineTo(x + w - 4, ly);
-            ctx.stroke();
-        }
     },
 
     drawBooksPlatform(ctx, x, y, w, h, seed) {
@@ -881,6 +819,9 @@ const SpriteLoader = {
         this.load('mob1_2', mobBase + 'mob 1_2.png');
         this.load('mob2_1', mobBase + 'mob 2_1.png');
         this.load('mob2_2', mobBase + 'mob 2_2.png');
+
+        // Level PNG images
+        this.load('level_chapter1', 'assets/levels/chapter1_platforms.png');
     }
 };
 

@@ -5,13 +5,150 @@
 const LevelGenerator = {
     generate(chapter, section) {
         switch (section) {
-            case 0: return this.generateExploration(chapter, 1);
+            case 0: return this.generateFromPNG(chapter);
             case 1: return this.generateBossArena(chapter, 1);
             case 2: return this.generateExploration(chapter, 2);
             case 3: return this.generateBossArena(chapter, 2);
             default: return this.generateExploration(chapter, 1);
         }
     },
+
+    // --- PNG-based level generation ---
+    // Extracts collision rectangles from a pre-loaded PNG image
+    generateFromPNG(chapter) {
+        const img = SpriteLoader.get('level_chapter1');
+        if (!img || !img.complete || img.naturalWidth === 0) {
+            console.warn('Level PNG not loaded yet, falling back to procedural');
+            return this.generateExploration(chapter, 1);
+        }
+
+        // Use cached collision data if available
+        if (this._cachedPNGLevel) {
+            return this._cachedPNGLevel;
+        }
+
+        const TILE_SIZE = 32;
+        const imgW = img.naturalWidth;
+        const imgH = img.naturalHeight;
+
+        // Scale down aggressively for fast pixel reading
+        const gridW = Math.ceil(imgW / TILE_SIZE);
+        const gridH = Math.ceil(imgH / TILE_SIZE);
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = gridW;
+        offCanvas.height = gridH;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.drawImage(img, 0, 0, gridW, gridH);
+        const imageData = offCtx.getImageData(0, 0, gridW, gridH);
+        const pixels = imageData.data;
+
+        // Build grid: each pixel in the tiny canvas = one tile
+        const grid = new Uint8Array(gridW * gridH);
+        for (let i = 0; i < gridW * gridH; i++) {
+            if (pixels[i * 4 + 3] > 128) {
+                grid[i] = 1;
+            }
+        }
+
+        // Merge into rectangles: horizontal runs first, then merge vertically
+        const platforms = [];
+        const used = new Uint8Array(gridW * gridH);
+
+        for (let gy = 0; gy < gridH; gy++) {
+            let gx = 0;
+            while (gx < gridW) {
+                if (grid[gy * gridW + gx] && !used[gy * gridW + gx]) {
+                    // Find horizontal run
+                    let runEnd = gx;
+                    while (runEnd < gridW && grid[gy * gridW + runEnd] && !used[gy * gridW + runEnd]) {
+                        runEnd++;
+                    }
+                    const runW = runEnd - gx;
+
+                    // Extend vertically: check rows below with same x range
+                    let runH = 1;
+                    let canExtend = true;
+                    while (canExtend && gy + runH < gridH) {
+                        for (let cx = gx; cx < gx + runW; cx++) {
+                            if (!grid[(gy + runH) * gridW + cx] || used[(gy + runH) * gridW + cx]) {
+                                canExtend = false;
+                                break;
+                            }
+                        }
+                        if (canExtend) runH++;
+                    }
+
+                    // Mark used
+                    for (let ry = gy; ry < gy + runH; ry++) {
+                        for (let rx = gx; rx < gx + runW; rx++) {
+                            used[ry * gridW + rx] = 1;
+                        }
+                    }
+
+                    platforms.push({
+                        x: gx * TILE_SIZE,
+                        y: gy * TILE_SIZE,
+                        width: runW * TILE_SIZE,
+                        height: runH * TILE_SIZE,
+                        type: 'png',
+                    });
+
+                    gx = runEnd;
+                } else {
+                    gx++;
+                }
+            }
+        }
+
+        console.log(`PNG level: ${imgW}x${imgH}, grid ${gridW}x${gridH}, ${platforms.length} collision rects`);
+
+        // Find a spawn point: scan top-left area for open space above solid ground
+        let spawnX = 100;
+        let spawnY = 200;
+        for (let sy = 0; sy < gridH - 2; sy++) {
+            for (let sx = 0; sx < Math.min(gridW, Math.ceil(600 / TILE_SIZE)); sx++) {
+                // Need empty space with solid below (ground)
+                if (!grid[sy * gridW + sx] && !grid[sy * gridW + sx] &&
+                    sy + 1 < gridH && grid[(sy + 1) * gridW + sx]) {
+                    // Check enough headroom (at least 6 tiles = 48px above)
+                    let hasRoom = true;
+                    for (let above = 1; above <= 6; above++) {
+                        if (sy - above >= 0 && grid[(sy - above) * gridW + sx]) {
+                            hasRoom = false;
+                            break;
+                        }
+                    }
+                    if (hasRoom) {
+                        spawnX = sx * TILE_SIZE;
+                        spawnY = sy * TILE_SIZE - CONFIG.PLAYER.HEIGHT;
+                        // Break out of both loops
+                        sy = gridH;
+                        break;
+                    }
+                }
+            }
+        }
+
+        const level = {
+            platforms: platforms,
+            enemies: [],
+            ropes: [],
+            width: imgW,
+            height: imgH,
+            spawnX: spawnX,
+            spawnY: spawnY,
+            exitX: imgW - 150,
+            exitY: imgH - 100,
+            exitZone: null,
+            chapter: chapter,
+            isPNGLevel: true,
+        };
+
+        this._cachedPNGLevel = level;
+        return level;
+    },
+
+    _cachedPNGLevel: null,
 
     generateExploration(chapter, part) {
         const T = CONFIG.TILE;

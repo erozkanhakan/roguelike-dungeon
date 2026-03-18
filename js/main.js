@@ -435,9 +435,13 @@ const Game = {
             }
         }
 
-        // Platforms
-        for (const p of this.level.platforms) {
-            Renderer.drawPlatform(ctx, p);
+        // Platforms: use PNG layer for PNG-based levels, individual sprites otherwise
+        if (this.level.isPNGLevel) {
+            Renderer.drawLevelPNG(ctx, this.level);
+        } else {
+            for (const p of this.level.platforms) {
+                Renderer.drawPlatform(ctx, p);
+            }
         }
 
         // Exit zone

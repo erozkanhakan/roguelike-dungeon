@@ -181,36 +181,6 @@ const UI = {
 
         const time = Date.now() / 1000;
 
-        // Background bookshelves
-        ctx.fillStyle = 'rgba(30, 20, 15, 0.5)';
-        for (let i = 0; i < 8; i++) {
-            const x = i * 180 + Math.sin(time * 0.3 + i) * 5;
-            ctx.fillRect(x, 100, 60, CONFIG.HEIGHT - 100);
-        }
-
-        // Floating dust
-        for (let i = 0; i < 30; i++) {
-            const x = (i * 137 + time * 20) % CONFIG.WIDTH;
-            const y = (i * 97 + Math.sin(time + i) * 30) % CONFIG.HEIGHT;
-            ctx.fillStyle = `rgba(255, 220, 180, ${0.1 + Math.sin(time + i) * 0.05})`;
-            ctx.fillRect(x, y, 2, 2);
-        }
-
-        // Sunbeam
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const grad = ctx.createLinearGradient(800, 0, 900, CONFIG.HEIGHT);
-        grad.addColorStop(0, 'rgba(255, 220, 150, 0.06)');
-        grad.addColorStop(1, 'rgba(255, 200, 120, 0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(750, 0);
-        ctx.lineTo(830, 0);
-        ctx.lineTo(950, CONFIG.HEIGHT);
-        ctx.lineTo(850, CONFIG.HEIGHT);
-        ctx.fill();
-        ctx.restore();
-
         // Title
         ctx.save();
         ctx.shadowColor = '#c4a24e';
